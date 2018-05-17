@@ -1,15 +1,10 @@
 # Google CloudML
 
 This README will show you the steps for getting your system set up to use our 
-Google CloudML project 
+Google CloudML project for development and testing purposes.
 
-
------------------------------------------Add pricing guide 
-* [Pricing](https://cloud.google.com/products/calculator/?authuser=1)
 
 ## Getting Started
-
-These instructions will get you a copy of the project up and running on your local machine for development and testing purposes. See deployment for notes on how to deploy the project on a live system.
 
 ### Prerequisites
 
@@ -64,7 +59,7 @@ It will then ask you
 Do you want to configure a default Compute Region and Zone? (Y/n)?
 ```
 
-Select Y and choose **us-west1-b**
+Select Y and choose **us-west1-b**. You may need to use different regions later, but this should be fine for now. 
 
 # Testing the ml-engine (optional)
 
@@ -185,8 +180,9 @@ Check the bucket name.
 echo $BUCKET_NAME
 ```
 
+Choose a region. The list of additional regions can be found [here](https://cloud.google.com/ml-engine/docs/tensorflow/regions).
 ```
-REGION=us-west1
+REGION=us-central1
 ```
 
 ```
@@ -251,3 +247,71 @@ tensorboard --logdir=$OUTPUT_PATH
 ```
 
 Then go to http://localhost:6006 in your browser.
+
+The cost of the different processing options can be found [here](https://cloud.google.com/products/calculator/?authuser=1).
+
+### Run distributed training in the cloud
+
+Set the job name again.
+```
+JOB_NAME=census_dist_YOUR-NAME_1
+```
+
+Set the output path.
+```
+OUTPUT_PATH=gs://$BUCKET_NAME/$JOB_NAME
+```
+
+Run the trainer.
+```
+gcloud ml-engine jobs submit training $JOB_NAME \
+    --job-dir $OUTPUT_PATH \
+    --runtime-version 1.4 \
+    --module-name trainer.task \
+    --package-path trainer/ \
+    --region $REGION \
+    --scale-tier STANDARD_1 \
+    -- \
+    --train-files $TRAIN_DATA \
+    --eval-files $EVAL_DATA \
+    --train-steps 1000 \
+    --verbosity DEBUG  \
+    --eval-steps 100
+```
+
+You can view the logs the same way you did with single-instance training.
+
+### Hyperparameter Tuning
+Hyperparameter tuning for this example can be done through configuring the YAML file named hptuning_config.yaml.
+
+Create the new job name and specify the config file.
+```
+HPTUNING_CONFIG=../hptuning_config.yaml
+JOB_NAME=census_core_hptune_1
+TRAIN_DATA=gs://$BUCKET_NAME/data/adult.data.csv
+EVAL_DATA=gs://$BUCKET_NAME/data/adult.test.csv
+```
+
+Specify the output path.
+```
+OUTPUT_PATH=gs://$BUCKET_NAME/$JOB_NAME
+```
+
+Run the trainer.
+```
+gcloud ml-engine jobs submit training $JOB_NAME \
+    --stream-logs \
+    --job-dir $OUTPUT_PATH \
+    --runtime-version 1.4 \
+    --config $HPTUNING_CONFIG \
+    --module-name trainer.task \
+    --package-path trainer/ \
+    --region $REGION \
+    --scale-tier STANDARD_1 \
+    -- \
+    --train-files $TRAIN_DATA \
+    --eval-files $EVAL_DATA \
+    --train-steps 1000 \
+    --verbosity DEBUG  \
+    --eval-steps 100
+```
